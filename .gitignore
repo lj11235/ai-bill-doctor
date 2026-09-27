@@ -1,0 +1,41 @@
+# Dependencies, builds, and local review artifacts
+node_modules/
+.pnpm-store/
+dist/
+coverage/
+outputs/
+.cache/
+.DS_Store
+*.local
+*.log
+*.db
+*.db-*
+*.sqlite*
+
+# Environment files and credentials (including local templates)
+.env
+.env.*
+*.env
+.envrc
+.npmrc
+.netrc
+.pypirc
+.aws/
+.ssh/
+secrets/
+secrets.*
+credentials/
+credentials.*
+*-credentials.json
+service-account*.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+id_rsa*
+id_ed25519*
+
+# Local agent metadata
+.codex/
+.agents/

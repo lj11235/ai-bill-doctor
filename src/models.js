@@ -29,7 +29,7 @@ export const MODELS = {
   },
 };
 
-// Run the stronger small model first; rank successful outputs by measured cost.
+// Quality-prioritized order for both execution and user review. Do not sort by cost.
 // GPT-4.1 nano is deliberately excluded: scheduled for shutdown 2026-10-23.
 // This V0 accepts plain text only; it cannot test tools, images, or JSON schemas.
 export const CANDIDATES = {

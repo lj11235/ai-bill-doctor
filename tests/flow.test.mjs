@@ -10,7 +10,7 @@ const source = (await readFile(new URL('../src/app.js', import.meta.url), 'utf8'
 const call = (model, cost, output) => ({ model, returnedModel: model, cost, output, complete: true, usage: { inputTokens: 1000, cachedInputTokens: 0, cachedInputReported: true, outputTokens: 100 }, latencyMs: 1200 });
 function resultFixture() {
   const baseline = { ...call('gpt-4o', .0108, 'Baseline output'), displayOutput: 'Baseline output', outputSource: 'benchmark' };
-  const candidates = [call('gpt-4o-mini', .00288, 'Cheapest answer'), call('gpt-4.1-mini', .00351, 'Second answer')].map(c => ({ ...c, reduction: models.costReduction(baseline.cost, c.cost) }));
+  const candidates = [call('gpt-4.1-mini', .00351, 'First configured answer'), call('gpt-4o-mini', .00288, 'Cheaper fallback answer')].map(c => ({ ...c, reduction: models.costReduction(baseline.cost, c.cost) }));
   return { baseline, candidates, measured: [baseline, ...candidates], failures: [], plan: buildPlan(data.DEMO_INPUT), pricing: models.PRICING, measuredBenchmarkCost: .01719 };
 }
 function app(initialHash = '', fetchImpl = async () => { throw new Error('Unexpected network call'); }) {
@@ -53,24 +53,27 @@ test('approved landing stays intact and input adds only the key as a requirement
   assert.doesNotMatch(ui.html, /monthlySpend|feature description|Example 2/);
 });
 
-test('acceptance gates monthly spend; rejection moves to next candidate then ends without manufactured savings', () => {
+test('review starts with the configured first candidate and reveals the cheaper fallback only after rejection', () => {
   const ui = app(); ui.showResult();
-  assert.match(ui.html, /73%<\/span> cheaper/);
+  assert.match(ui.html, /68%<\/span> cheaper/);
+  assert.match(ui.html, /First configured answer/);
+  assert.doesNotMatch(ui.html, /Cheaper fallback answer/);
   ui.run("location.hash = '#estimate'"); ui.change();
   assert.equal(ui.hash, '#results');
   ui.run('tryNextCandidate()');
-  assert.match(ui.html, /Second answer/);
-  assert.match(ui.html, /68%<\/span> cheaper/);
+  assert.match(ui.html, /Cheaper fallback answer/);
+  assert.doesNotMatch(ui.html, /First configured answer/);
+  assert.match(ui.html, /73%<\/span> cheaper/);
   assert.equal(ui.run('acceptedIndex'), null);
   ui.run('tryNextCandidate()');
   assert.match(ui.html, /Your current model may be worth the extra cost/);
   assert.match(ui.html, /No change recommended/);
-  assert.doesNotMatch(ui.html, /data-action="accept"|<span>68%/);
+  assert.doesNotMatch(ui.html, /data-action="accept"|<span>73%/);
   ui.run('acceptCandidate()'); assert.equal(ui.run('acceptedIndex'), null);
 });
 
 test('accepted candidate controls exact monthly/annual math and copied model', () => {
-  for (const [index, monthly, annual, model] of [[0, '367', '4,400', 'gpt-4o-mini'], [1, '338', '4,050', 'gpt-4.1-mini']]) {
+  for (const [index, monthly, annual, model] of [[0, '338', '4,050', 'gpt-4.1-mini'], [1, '367', '4,400', 'gpt-4o-mini']]) {
     const ui = app(); ui.showResult();
     if (index) ui.run('tryNextCandidate()');
     ui.run('acceptCandidate()'); ui.change();
@@ -83,6 +86,17 @@ test('accepted candidate controls exact monthly/annual math and copied model', (
     assert.match(ui.html, /not validated production savings/);
     assert.doesNotMatch(ui.html, /mock sample|Shorter prompt/);
   }
+});
+
+test('results and savings disclose both token pricing and actual output length in the reduction', () => {
+  const ui = app(); ui.showResult();
+  const disclosure = /includes both differences in model token pricing and differences in the actual number of output tokens generated in this sample/;
+  assert.match(ui.html, disclosure);
+  assert.match(ui.html, /preset order, chosen to prioritize likely quality/);
+  assert.doesNotMatch(ui.html, /ordered by measured sample cost/);
+  ui.run('acceptCandidate()'); ui.change();
+  ui.run("spending = {monthlySpend: '1000', share: 'half'}; saveEstimate()"); ui.change();
+  assert.match(ui.html, disclosure);
 });
 
 test('provider output is escaped and a pasted baseline is clearly distinguished from measured replay', () => {
@@ -142,7 +156,8 @@ test('browser uses local POST, clears key immediately, processes fragmented prog
   assert.doesNotMatch(JSON.stringify(sent[0]), /test-private-key/);
   assert.doesNotMatch(ui.run('JSON.stringify({ input, submitted, benchmark, spending, estimate })'), /test-private-key/);
   assert.equal(ui.hash, '#results');
-  ui.change(); assert.match(ui.html, /Cheapest answer/);
+  ui.change(); assert.match(ui.html, /First configured answer/);
+  assert.doesNotMatch(ui.html, /Cheaper fallback answer/);
   assert.doesNotMatch(source, /localStorage|sessionStorage|indexedDB|console\.|https:\/\/api\.openai/);
 });
 

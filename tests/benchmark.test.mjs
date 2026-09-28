@@ -4,6 +4,7 @@ import { callOpenAI } from '../lib/provider.mjs';
 import { buildPlan, runBenchmark } from '../lib/benchmark.mjs';
 import { BenchmarkError } from '../lib/errors.mjs';
 import { DEMO_INPUT } from '../src/data.js';
+import { CANDIDATES } from '../src/models.js';
 
 const TEST_KEY = 'test-key-never-persist-this';
 const responseData = (model, extra = {}) => ({ model, service_tier: 'default', status: 'completed', usage: { input_tokens: 1000, input_tokens_details: { cached_tokens: 200 }, output_tokens: 100 }, output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: `Actual answer from ${model}` }] }], ...extra });
@@ -40,15 +41,19 @@ test('real provider adapter reads API usage/output and sends only fixed text-onl
   assert.doesNotMatch(JSON.stringify(fake.calls), /Never send original/);
 });
 
-test('benchmark calls baseline once then configured candidates; ranks on actual cost', async () => {
-  const fake = fixtureFetch();
-  const events = [];
-  const result = await runWith(fake, { emit: e => events.push(e) });
-  assert.deepEqual(fake.calls.map(c => c.model), ['gpt-4o', 'gpt-4.1-mini', 'gpt-4o-mini']);
-  assert.deepEqual(result.candidates.map(c => c.model), ['gpt-4o-mini', 'gpt-4.1-mini']);
-  assert.equal(events.filter(e => e.state === 'complete').length, 3);
-  assert.equal(result.baseline.outputSource, 'benchmark');
-  assert.doesNotMatch(JSON.stringify({ result, events }), new RegExp(TEST_KEY));
+test('benchmark preserves configured review order even when the later candidate costs less', async () => {
+  for (const model of ['gpt-4o', 'gpt-4.1']) {
+    const fake = fixtureFetch();
+    const events = [];
+    const result = await runWith(fake, { input: { ...DEMO_INPUT, model }, emit: e => events.push(e) });
+    assert.deepEqual(fake.calls.map(c => c.model), [model, ...CANDIDATES[model]]);
+    assert.deepEqual(result.candidates.map(c => c.model), ['gpt-4.1-mini', 'gpt-4o-mini']);
+    assert.ok(result.candidates[0].cost > result.candidates[1].cost);
+    assert.ok(result.candidates[0].reduction < result.candidates[1].reduction);
+    assert.equal(events.filter(e => e.state === 'complete').length, 3);
+    assert.equal(result.baseline.outputSource, 'benchmark');
+    assert.doesNotMatch(JSON.stringify({ result, events }), new RegExp(TEST_KEY));
+  }
 });
 
 test('pasted original is displayed; one replay measures its baseline and preserves that replay output', async () => {

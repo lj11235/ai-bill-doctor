@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { costFromUsage, costReduction, CANDIDATES, MODELS, LIMITS } from '../src/models.js';
 import { calculateSavings, makeSetup, requestPayload, DEMO_INPUT } from '../src/data.js';
-import { buildPlan, rankCandidates, validateInput } from '../lib/benchmark.mjs';
+import { buildPlan, getReviewCandidates, validateInput } from '../lib/benchmark.mjs';
 
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-10, `${a} != ${b}`);
 
@@ -41,14 +41,16 @@ test('explicit candidates are cheaper in all published rate categories and cappe
   }
 });
 
-test('candidates rank by measured cost and exclude failed, equal, expensive, invalid calls', () => {
-  const ranked = rankCandidates([
+test('review candidates preserve input order and exclude failed, equal, expensive, invalid calls', () => {
+  const candidates = getReviewCandidates([
     { model: 'a', complete: true, cost: .004 }, { model: 'b', complete: true, cost: .002 },
     { model: 'c', complete: false, cost: .001 }, { model: 'd', complete: true, cost: .01 },
     { model: 'e', complete: true, cost: .02 }, { model: 'f', complete: true, cost: NaN },
   ], .01);
-  assert.deepEqual(ranked.map(c => c.model), ['b', 'a']);
-  close(ranked[0].reduction, .8);
+  assert.deepEqual(candidates.map(c => c.model), ['a', 'b']);
+  assert.deepEqual(candidates.map(c => c.cost), [.004, .002]);
+  close(candidates[0].reduction, .6);
+  close(candidates[1].reduction, .8);
 });
 
 test('setup contains the exact unchanged prompts and tested API settings, no key', () => {

@@ -44,13 +44,13 @@ The server requests documented aliases, records the returned model snapshot, and
 
 ## What is real, and what is estimated?
 
-**Real:** outputs, returned model, latency, and API-reported input/cached/output usage for every completed call. Prompts are identical between baseline and candidates. Candidates are ranked by calculated sample cost; there is no AI quality judge.
+**Real:** outputs, returned model, latency, and API-reported input/cached/output usage for every completed call. Prompts are identical between baseline and candidates. Candidates follow the configured `CANDIDATES` order, chosen to prioritize likely output quality. GPT-4.1 mini appears before GPT-4o mini for GPT-4o/GPT-4.1 benchmarks, even when GPT-4o mini costs less. The next candidate is shown after the user rejects the first; there is no AI quality judge.
 
 **Calculated call cost:** `((input − cached input) × input price + cached input × cached price + output × output price) / 1,000,000`. This is an estimate from measured usage, not an invoice. Cached input defaults to zero only when unavailable, disclosed in the details. No Batch discounts, priority tiers, taxes, regional uplift, or negotiated pricing. Truncated/refused/empty outputs are excluded; their reported costs still count toward benchmark spending.
 
 **Pasted original:** displayed for comparison and never sent to OpenAI. Plain text has no usage metadata, so one baseline replay is necessary to measure cost. The replay can differ from the pasted answer; both the distinction and measured replay are available under “How we calculated this.” There is no claim to know the pasted answer's historical cost.
 
-**Estimated savings opportunity:** `(baseline cost − accepted candidate cost) / baseline cost`. Monthly = bill × workflow share × reduction. Annual = unrounded monthly × 12. A little = 25%, About half = 50%, Most of it = 75% of spend. This assumes a comparable request mix, volume, pricing, caching, and acceptable outputs beyond the one example. Acceptance is a user judgment on one sample, **not validated production savings**.
+**Estimated savings opportunity:** `(baseline cost − accepted candidate cost) / baseline cost`. The measured percentage reduction includes both differences in model token pricing and differences in the actual number of output tokens generated in this sample. Monthly = bill × workflow share × reduction. Annual = unrounded monthly × 12. A little = 25%, About half = 50%, Most of it = 75% of spend. This assumes a comparable request mix, volume, pricing, caching, and acceptable outputs beyond the one example. Acceptance is a user judgment on one sample, **not validated production savings**.
 
 No benchmark results remain mocked in the app. Provider calls in automated tests are mocked. The sample input is authored example text.
 
@@ -81,7 +81,7 @@ src/styles.css      Responsive styles
 src/models.js      Dated model/pricing metadata, candidates, limits, cost math
 src/data.js        Sample input, shared request payload, savings/copy helpers
 lib/provider.mjs   OpenAI Responses call and usage extraction
-lib/benchmark.mjs  Preflight, bounded calls, ranking, partial failures
+lib/benchmark.mjs  Preflight, bounded calls, candidate review order, partial failures
 lib/errors.mjs     Safe founder-facing errors
 server.mjs         Local HTTP server and two POST endpoints
 tests/             Provider-mocked tests (no live calls)

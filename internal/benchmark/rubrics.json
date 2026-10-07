@@ -1,0 +1,143 @@
+{
+  "suiteId": "smb-replacement-v1",
+  "policy": "Precommitted before model execution, including criterion severity. Never send this file to models or show it during blind baseline-replacement decisions. Exact JSON evaluation compares parsed JSON recursively, ignoring object-key order but preserving array order and rejecting extra fields; numbers must equal the requested rounded values. Exact match is both strict_pass and acceptable_pass. Manual criteria retain their approved wording. strict_pass requires every criterion to pass. acceptable_pass requires every critical criterion to pass and at least 80% of all criteria to pass. A critical failure makes acceptable_pass false; otherwise a critical inconclusive makes it inconclusive. With critical criteria passed, secondary uncertainty is inconclusive only if it could change whether 80% pass. Record every criterion result, severity and evidence. Budget/technical limitations override quality grading as inconclusive. Human yes/no asks whether each candidate should replace the visible baseline, independently; no baseline human decision is collected.",
+  "cases": {
+    "01-billing-triage": {
+      "type": "exact_json",
+      "rationale": "Urgency comes from the explicit billing policy. A sales request marked urgent, an invoice download and a valid pre-cancellation charge must not become P1 incidents.",
+      "expected": [
+        {"id":"T101","category":"billing","priority":"P1","owner":"finance"},
+        {"id":"T102","category":"sales","priority":"P3","owner":"sales"},
+        {"id":"T103","category":"billing","priority":"P2","owner":"finance"},
+        {"id":"T104","category":"billing","priority":"P1","owner":"finance"},
+        {"id":"T105","category":"how_to","priority":"P3","owner":"support"},
+        {"id":"T106","category":"bug","priority":"P2","owner":"engineering"}
+      ]
+    },
+    "02-contracted-arr": {
+      "type": "exact_json",
+      "rationale": "Northstar's $72,000 is an unsigned future total: contracted ARR stays $24,000 and incremental pipeline is $48,000. Onboarding and migration fees are nonrecurring. A trial and verbal enthusiasm are not a signed contract.",
+      "expected": {
+        "accounts": [
+          {"id":"A01","monthly_recurring_usd":2000,"contracted_arr_usd":24000,"unsigned_incremental_arr_usd":48000},
+          {"id":"A02","monthly_recurring_usd":1200,"contracted_arr_usd":14400,"unsigned_incremental_arr_usd":0},
+          {"id":"A03","monthly_recurring_usd":0,"contracted_arr_usd":0,"unsigned_incremental_arr_usd":9600}
+        ],
+        "total_contracted_arr_usd":38400
+      }
+    },
+    "03-invoice-json": {
+      "type": "exact_json",
+      "rationale": "348 + 6 - 35 = 319; tax is 319 × 20% = 63.80; total 382.80 minus the 100 payment leaves 282.80. The crossed-out draft and delivery date are not authoritative.",
+      "expected": {
+        "invoice_id":"INV-2048","customer":"Moss Labs","currency":"EUR","issued_date":"2026-10-03","due_date":"2026-10-17",
+        "lines":[
+          {"code":"CREDIT","quantity":1,"unit_price":-35,"line_total":-35},
+          {"code":"OVERAGE","quantity":1500,"unit_price":0.004,"line_total":6},
+          {"code":"SEATS","quantity":12,"unit_price":29,"line_total":348}
+        ],
+        "subtotal":319,"tax":63.8,"total":382.8,"paid":100,"balance_due":282.8
+      }
+    },
+    "04-multi-team-routing": {
+      "type": "exact_json",
+      "rationale": "Only unresolved action owners receive work. Staging success is not production deployment. The explicit correction removes sales action; billing is independent and support depends on deployment.",
+      "expected": [
+        {"team":"billing","owner":"Omar","action_code":"issue_credit_note","due_utc":"2026-10-08T16:00:00Z","depends_on":[]},
+        {"team":"engineering","owner":"Inez","action_code":"deploy_signature_fix","due_utc":"2026-10-08T15:00:00Z","depends_on":[]},
+        {"team":"support","owner":"Luca","action_code":"send_customer_update","due_utc":"2026-10-08T17:00:00Z","depends_on":["deploy_signature_fix"]}
+      ]
+    },
+    "05-unit-economics": {
+      "type": "exact_json",
+      "rationale": "240 × 300 = 72,000 requests. Inference saves 396, but incremental support costs 45 × 12 = 540; net change is -144. Support_after uses 36 + 45 tickets. Break-even additional tickets = 396 / 12 = 33. Contribution margins use revenue, not cost, as denominator.",
+      "expected": {
+        "monthly_requests":72000,"revenue":11760,"inference_before":576,"inference_after":180,"inference_savings":396,
+        "support_before":432,"support_after":972,"other_variable_cost":720,
+        "contribution_before":10032,"contribution_after":9888,"margin_before_pct":85.31,"margin_after_pct":84.08,
+        "net_monthly_improvement":-144,"break_even_extra_tickets":33,"decision":"keep_current"
+      }
+    },
+    "06-experiment-economics": {
+      "type": "exact_json",
+      "rationale": "A costs 12 + 18 × 5 = 102 for 920 successes; B costs 4.5 + 31 × 5 = 159.5 for 860. Floor((102 / 920 × 860 - 4.5) / 5) = 18 tickets. B's 62.5% inference saving does not survive support costs or the 90% completion requirement.",
+      "expected": {
+        "A":{"ai_cost":12,"support_cost":90,"total_cost":102,"success_rate_pct":92,"cost_per_success":0.1109,"cost_per_1000_successes":110.87,"meets_quality_floor":true},
+        "B":{"ai_cost":4.5,"support_cost":155,"total_cost":159.5,"success_rate_pct":86,"cost_per_success":0.1855,"cost_per_1000_successes":185.47,"meets_quality_floor":false},
+        "inference_cost_reduction_pct":62.5,"B_max_whole_tickets_to_match_A_cost_per_success":18,"decision":"A"
+      }
+    },
+    "07-feedback-reliability": {
+      "type": "manual_rubric",
+      "criteria": [
+        {"id":"facts","severity":"critical","requirement":"Identify calendar reliability affecting Orchard and Cedar, CSV timezone confusion at Rook, and the theme/dashboard requests. Preserve Orchard's missed client call and the positive setup/stability feedback; do not describe incorrect timestamps as lost bookings."},
+        {"id":"deduplication","severity":"critical","requirement":"Treat F1/F2/F6 as one customer, with F6 repeating the same incident. There are five unique customers and two with calendar complaints. Do not count seven messages as seven customers or imply every disconnect was a separate missed call."},
+        {"id":"uncertainty","severity":"critical","requirement":"State that this selected sample cannot establish population prevalence and that Orchard and Cedar may have different causes. Do not assert a shared confirmed technical root cause."},
+        {"id":"actions","severity":"secondary","requirement":"Give exactly two actionable next steps, prioritizing reliability investigation and customer impact. They must be grounded in these notes and may combine related follow-up work; do not commit to shipping a feature or a repair date."},
+        {"id":"format","severity":"critical","requirement":"180-240 words total, including headings, with the three requested headings. Clear enough for a product team, without invented revenue, customer counts, churn claims or roadmap commitments."}
+      ],
+      "criticalOmissions":"Missing the repeated-customer issue, the missed-call impact, or the sample/root-cause uncertainty is a failure even if the prose sounds polished."
+    },
+    "08-feedback-conflicts": {
+      "type": "manual_rubric",
+      "criteria": [
+        {"id":"segments","severity":"critical","requirement":"Preserve the three founders' brevity preference, two consultants' need for detail/timestamps, two agency leads' ownership need and the screen-reader accessibility issue. Duplicated consultant quotes must not increase the number of interviewees above eight."},
+        {"id":"ownership","severity":"critical","requirement":"Identify the falsely assigned action owner as a quality concern and the noisy/accented transcript as an unverified possible contributor. Do not blame an accent or claim a confirmed root cause."},
+        {"id":"causality","severity":"critical","requirement":"If reporting the 84-to-101 export change, treat it as descriptive and acknowledge the simultaneous button change, convenience sample and absence of retention measurement. Explicitly reject the requested retention claim."},
+        {"id":"recommendation","severity":"critical","requirement":"Recommend an approach that preserves detailed information for users who need it, rather than universally imposing destructive five-bullet summaries. Fit the stated capacity of one small product change plus one instrumentation change; acknowledge other needs without promising to ship them all next week."},
+        {"id":"experiment","severity":"secondary","requirement":"Propose one concrete follow-up experiment with a comparison and a measurable outcome. Address segment differences or correctness/ownership; do not use increased export count alone as proof of retention or quality."},
+        {"id":"format","severity":"critical","requirement":"220-300 words; a coherent decision memo with recommendation and one experiment. No invented conversion, retention, statistical significance or delivery guarantees."}
+      ],
+      "criticalOmissions":"Losing the consultants' need for detail, the ownership error, or the export-button confounder constitutes failure."
+    },
+    "09-outage-rewrite": {
+      "type": "manual_rubric",
+      "criteria": [
+        {"id":"scope_time","severity":"critical","requirement":"Correctly state October 8, 09:10-09:42 UTC, dashboard-query failures for some EU workspaces, and recovery of dashboard queries after rollback. Do not expand the incident to every workspace or service."},
+        {"id":"ongoing_work","severity":"critical","requirement":"Make clear that scheduled exports are still catching up and customers should not resubmit them. Do not announce all exports delivered or all work completed."},
+        {"id":"data_uncertainty","severity":"critical","requirement":"Convey that no evidence of stored-data loss has been found so far and validation continues. Do not guarantee data safety, assert no loss definitively, or make a security statement."},
+        {"id":"next_update","severity":"critical","requirement":"Promise only the authorized next update by 11:00 UTC even if work continues. No invented resolution deadline, refund, credit or guarantee against recurrence."},
+        {"id":"voice_format","severity":"secondary","requirement":"Subject plus a 100-150 word body, excluding subject/labels. Calm plain language, acknowledges disruption, removes the bad draft's jargon and incorrect rerun instruction."}
+      ],
+      "criticalOmissions":"A false all-clear, resubmission instruction, absolute data-safety claim, or missing 11:00 update fails."
+    },
+    "10-onboarding-copy": {
+      "type": "manual_rubric",
+      "criteria": [
+        {"id":"free_plan","severity":"critical","requirement":"Both variants accurately describe 20 drafts per calendar month, no credit card and the ability to remain free without automatic paid conversion. Do not call this a time-limited trial or imply unused drafts roll over."},
+        {"id":"paid_plan","severity":"critical","requirement":"Both mention optional Starter at USD $19/month for 500 drafts/month with applicable taxes excluded. Any annual mention must correctly say USD $190/year paid upfront for 500 drafts per month, not 500 per year or an annual pool."},
+        {"id":"control","severity":"critical","requirement":"Both make human review clear. The task starts by pasting support notes; do not imply automatic sending or an existing helpdesk integration."},
+        {"id":"unsupported_claims","severity":"critical","requirement":"No fabricated testimonials, adoption counts, quantified time savings, unlimited usage, guarantees or scarcity. Benefits must follow from creating a reviewable reply draft."},
+        {"id":"distinct_variants","severity":"secondary","requirement":"A emphasizes finishing a real task today and B emphasizes control/starting free. They must be meaningfully distinct and useful to a busy founder, rather than only changing a synonym."},
+        {"id":"format","severity":"secondary","requirement":"Two variants; each subject <=45 characters, preview <=70 characters and body 90-130 words, excluding labels. Each body ends exactly with Create your first draft. Friendly plain language."}
+      ],
+      "criticalOmissions":"Wrong allowance/price, invented sending/integration, or loss of human control fails regardless of persuasive quality."
+    },
+    "11-launch-synthesis": {
+      "type": "manual_rubric",
+      "criteria": [
+        {"id":"decision","severity":"critical","requirement":"Recommend no public launch tomorrow; distinguish preparations for a conditional 10-workspace pilot from permission to use real documents. Restrict the pilot to English USD invoices and human-approved drafts; postpone if gates remain open. Cite L9 and acknowledge the original L1 target was superseded."},
+        {"id":"gates","severity":"critical","requirement":"List all four outstanding pre-document gates: production name fix/regression, verified 30-day deletion, signed-off consent, production stop-switch check. As of noon October 12, scheduled work is not completed; cite L4/L5/L8/L9/L10 as relevant."},
+        {"id":"evidence_limits","severity":"critical","requirement":"Report 76/80 = 95% synthetic acceptance and four tax corrections with its synthetic/sample limitations; do not imply production accuracy, resolution of the name bug or verified cost savings. Recognize missing vendor highlighting and unmeasured successful-invoice economics without inventing a approved numeric accuracy threshold."},
+        {"id":"owners","severity":"secondary","requirement":"Give actionable ownership: Inez for name/regression/stop-switch; Omar for deletion/consent; Nia for invitations/support; Jules for measurement. Separate these named responsibilities from the founder's need to approve expansion criteria."},
+        {"id":"scope_resources","severity":"critical","requirement":"Respect 10 invited workspaces versus the support capacity ceiling of 20, weekday support hours and the internal $1,500 monthly pilot budget. Public retention copy needs correction before public rollout; do not claim certification, automatic posting, multi-currency support or approved paid pilot pricing."},
+        {"id":"next_decision","severity":"critical","requirement":"Define a gate check before real-document use and a seven-day evidence review before expansion; include attempts, accepted/successful drafts, corrections, model cost and support time in the measurement plan. Reject the unapproved flawless/half-cost marketing claims."},
+        {"id":"format_sources","severity":"critical","requirement":"450-600 words including table/headings; recommendation, evidence, owner/action table and next-decision conditions. Material claims cite appropriate L source IDs. No fabricated completed checks, approvals, measurements or customer promises."}
+      ],
+      "criticalOmissions":"Any missing required launch gate, a public go-ahead, or treating a planned check as completed fails. No canonical memo is prescribed."
+    },
+    "12-pilot-synthesis": {
+      "type": "manual_rubric",
+      "criteria": [
+        {"id":"economics","severity":"critical","requirement":"Table uses the corrected $4 support cost: A AI $14, support $48, total $62, cost/accepted draft $0.0738; B AI $6, support $100, total $106, cost/accepted draft $0.1179. Do not double-count retries or rejection counts. Explain that lower AI spend did not yield lower observed total cost per accepted draft. Cite P2-P5."},
+        {"id":"mix","severity":"critical","requirement":"Report A shipping 90%, billing 60%; B shipping 92%, billing 50%; B reweighted to A's 80/20 mix is 83.6%, versus A's 84%. Explain why the 89.9% aggregate is affected by mix and why this nonrandomized reweighting does not prove a causal model effect."},
+        {"id":"false_confidence","severity":"critical","requirement":"Separate agent acceptance from correctness. Report the spot-check warning of 2/30 A and 5/30 B unsupported policy claims, acknowledging convenience samples and nonblind review. Do not extrapolate population error rates or claim known financial harm."},
+        {"id":"decision","severity":"critical","requirement":"Do not recommend blanket replacement based on the supplied evidence. Preserve human approval and current routing while proposing a bounded stratified comparison. A limited shipping-only follow-up is acceptable if it does not erase the billing risk or assert quality equivalence."},
+        {"id":"experiment","severity":"critical","requirement":"Propose fixed prompts, stratified assignment, blind independent rubric review and accounting for all attempts/support. Identify Nia/Inez ownership, <=10 shops, seven days and <=$200 incremental product-pilot budget. Include the stated cost and escaped-policy-violation stop conditions; do not change the benchmark's cap."},
+        {"id":"limits","severity":"critical","requirement":"Distinguish 3.8-to-2.6 second response latency from unmeasured end-to-end handling/labor savings. Do not claim statistical significance, retention effects, proven production savings, legal violations or automatic sending."},
+        {"id":"format_sources","severity":"secondary","requirement":"450-600 words including table/headings; economics table, mix/quality discussion and next experiment. Cite supporting P IDs for material claims. No invented facts or canonical wording requirement."}
+      ],
+      "criticalOmissions":"Wrong support-cost denominator, missing traffic-mix correction or equating accepted with correct is a failure."
+    }
+  }
+}

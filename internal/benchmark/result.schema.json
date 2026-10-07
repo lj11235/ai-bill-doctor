@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI Bill Doctor internal result.json; companion records in $defs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "suiteFingerprint", "caseId", "category", "baselineModel", "startedAt", "finishedAt", "state", "plan", "engineOutcome", "measuredCost", "costMayBeIncomplete", "calls"],
+  "properties": {
+    "schemaVersion": {"const": 2},
+    "suiteFingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "caseId": {"type": "string"},
+    "category": {"type": "string"},
+    "baselineModel": {"enum": ["gpt-6-astra", "gpt-6.1-sol"]},
+    "startedAt": {"type": "string", "format": "date-time"},
+    "finishedAt": {"type": ["string", "null"], "format": "date-time"},
+    "state": {"enum": ["running", "finished"]},
+    "plan": {"type": "object", "description": "Unmodified buildPlan result: quality-ordered calls, maxCost, budgetUsd, requiresConfirmation, inputTokenBound, maxOutputTokens, settings, dated pricing sources."},
+    "engineOutcome": {"type": ["string", "null"], "description": "complete or a whitelisted error code; never a raw provider error."},
+    "measuredCost": {"type": "number", "minimum": 0},
+    "costMayBeIncomplete": {"type": "boolean"},
+    "calls": {"type": "array", "minItems": 2, "maxItems": 3, "items": {"$ref": "#/$defs/call"}}
+  },
+  "$defs": {
+    "call": {
+      "type": "object", "additionalProperties": false,
+      "required": ["label", "role", "model", "attempted", "status", "reason", "output", "usage", "cost", "reduction", "latencyMs", "pricing", "settings"],
+      "properties": {
+        "label": {"enum": ["Baseline", "Candidate A", "Candidate B"]},
+        "role": {"enum": ["baseline", "candidate"]},
+        "model": {"enum": ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"]},
+        "attempted": {"type": "boolean"},
+        "status": {"enum": ["not_run", "running", "complete", "quality_failure", "inconclusive_output_budget", "inconclusive_technical"]},
+        "reason": {"type": ["string", "null"]},
+        "output": {"type": ["string", "null"]},
+        "usage": {"type": ["object", "null"], "description": "Actual API counts: inputTokens, cachedInputTokens, cacheWriteTokens, outputTokens, reasoningTokens."},
+        "cost": {"type": ["number", "null"], "minimum": 0},
+        "reduction": {"type": ["number", "null"], "description": "Fraction (baseline cost - candidate cost) / baseline cost; can be negative. Null if engine did not produce a comparable completed run."},
+        "latencyMs": {"type": ["number", "null"], "minimum": 0},
+        "pricing": {"type": ["object", "null"]},
+        "settings": {"type": ["object", "null"]}
+      }
+    },
+    "human": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "decisionType", "resultHash", "recordedAt", "decisions"],
+      "properties": {
+        "schemaVersion": {"const": 2},
+        "decisionType": {"const": "baseline_replacement"},
+        "resultHash": {"type": "string"},
+        "recordedAt": {"type": "string", "format": "date-time"},
+        "decisions": {"type": "object", "additionalProperties": false, "properties": {"Candidate A": {"enum": ["yes", "no"]}, "Candidate B": {"enum": ["yes", "no"]}}, "description": "Independent baseline-replacement decision for every complete candidate. Baseline is visible as reference and has no human decision. Unreviewable candidates have no entry."}
+      }
+    },
+    "rubric": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schemaVersion", "resultHash", "humanHash", "rubricHash", "recordedAt", "judgments"],
+      "properties": {
+        "schemaVersion": {"const": 2},
+        "resultHash": {"type": "string"},
+        "humanHash": {"type": "string"},
+        "rubricHash": {"type": "string"},
+        "recordedAt": {"type": "string", "format": "date-time"},
+        "judgments": {"type": "object", "additionalProperties": {
+          "type": "object", "required": ["strict_pass", "acceptable_pass", "reason", "checks"], "additionalProperties": false,
+          "properties": {
+            "strict_pass": {"enum": [true, false, "inconclusive"], "description": "Every criterion passes, or exact JSON matches."},
+            "acceptable_pass": {"enum": [true, false, "inconclusive"], "description": "Every critical criterion passes and at least 80% of all criteria pass, or exact JSON matches. Critical uncertainty prevents a pass."},
+            "reason": {"type": "string"},
+            "checks": {"type": "array", "items": {
+              "type": "object", "required": ["id", "severity", "result", "evidence"], "additionalProperties": false,
+              "properties": {"id": {"type": "string"}, "severity": {"enum": ["critical", "secondary"]}, "result": {"enum": ["pass", "fail", "inconclusive"]}, "evidence": {"type": "string", "minLength": 1}}
+            }}
+          }
+        }}
+      }
+    }
+  }
+}

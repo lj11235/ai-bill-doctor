@@ -7,10 +7,10 @@ import * as data from '../src/data.js';
 import { buildPlan } from '../lib/benchmark.mjs';
 
 const source = (await readFile(new URL('../src/app.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '');
-const call = (model, cost, output) => ({ model, returnedModel: model, cost, output, complete: true, usage: { inputTokens: 1000, cachedInputTokens: 0, cachedInputReported: true, outputTokens: 100 }, latencyMs: 1200 });
+const call = (model, cost, output) => ({ model, returnedModel: model, cost, output, complete: true, usage: { inputTokens: 1000, cachedInputTokens: 0, cacheWriteTokens: 0, outputTokens: 100, reasoningTokens: 40 }, latencyMs: 1200, pricing: models.pricingForUsage(model, 1000), settings: structuredClone(models.BENCHMARK_SETTINGS) });
 function resultFixture() {
-  const baseline = { ...call('gpt-4o', .0108, 'Baseline output'), displayOutput: 'Baseline output', outputSource: 'benchmark' };
-  const candidates = [call('gpt-4.1-mini', .00351, 'First configured answer'), call('gpt-4o-mini', .00288, 'Cheaper fallback answer')].map(c => ({ ...c, reduction: models.costReduction(baseline.cost, c.cost) }));
+  const baseline = { ...call('gpt-6-astra', .0108, 'Baseline output'), displayOutput: 'Baseline output', outputSource: 'benchmark' };
+  const candidates = [call('gpt-6.1-sol', .00351, 'First configured answer'), call('gpt-6-luna', .00288, 'Cheaper fallback answer')].map(c => ({ ...c, reduction: models.costReduction(baseline.cost, c.cost) }));
   return { baseline, candidates, measured: [baseline, ...candidates], failures: [], plan: buildPlan(data.DEMO_INPUT), pricing: models.PRICING, measuredBenchmarkCost: .01719 };
 }
 function app(initialHash = '', fetchImpl = async () => { throw new Error('Unexpected network call'); }) {
@@ -50,6 +50,9 @@ test('approved landing stays intact and input adds only the key as a requirement
   assert.equal((ui.html.match(/\brequired\b/g) || []).length, 3);
   assert.match(ui.html, /Used only to run this benchmark. Not stored./);
   assert.match(ui.html, /type="password"/);
+  assert.match(ui.html, /option value="gpt-6-astra"/);
+  assert.match(ui.html, /option value="gpt-6.1-sol"/);
+  assert.doesNotMatch(ui.html, /option value="gpt-6-luna"|GPT-4/);
   assert.doesNotMatch(ui.html, /monthlySpend|feature description|Example 2/);
 });
 
@@ -73,7 +76,7 @@ test('review starts with the configured first candidate and reveals the cheaper 
 });
 
 test('accepted candidate controls exact monthly/annual math and copied model', () => {
-  for (const [index, monthly, annual, model] of [[0, '338', '4,050', 'gpt-4.1-mini'], [1, '367', '4,400', 'gpt-4o-mini']]) {
+  for (const [index, monthly, annual, model] of [[0, '338', '4,050', 'gpt-6.1-sol'], [1, '367', '4,400', 'gpt-6-luna']]) {
     const ui = app(); ui.showResult();
     if (index) ui.run('tryNextCandidate()');
     ui.run('acceptCandidate()'); ui.change();
@@ -92,11 +95,19 @@ test('results and savings disclose both token pricing and actual output length i
   const ui = app(); ui.showResult();
   const disclosure = /includes both differences in model token pricing and differences in the actual number of output tokens generated in this sample/;
   assert.match(ui.html, disclosure);
+  assert.match(ui.html, /Reasoning: medium effort \/ standard mode/);
+  assert.match(ui.html, /cache-write tokens/);
+  assert.match(ui.html, /reasoning tokens \(charged once\)/);
+  assert.match(ui.html, /272,000 total input tokens/);
   assert.match(ui.html, /preset order, chosen to prioritize likely quality/);
   assert.doesNotMatch(ui.html, /ordered by measured sample cost/);
   ui.run('acceptCandidate()'); ui.change();
   ui.run("spending = {monthlySpend: '1000', share: 'half'}; saveEstimate()"); ui.change();
   assert.match(ui.html, disclosure);
+  assert.match(ui.html, /Reasoning: medium effort \/ standard mode/);
+  assert.match(ui.html, /cache-write tokens/);
+  assert.match(ui.html, /reasoning tokens \(charged once\)/);
+  assert.match(ui.html, /272,000 total input tokens/);
 });
 
 test('provider output is escaped and a pasted baseline is clearly distinguished from measured replay', () => {
@@ -117,7 +128,7 @@ test('no cheaper output and failed alternatives have honest terminal states', ()
   assert.match(ui.html, /No cheaper result this time/);
   assert.doesNotMatch(ui.html, /data-action="accept"/);
   result.measured = [result.baseline];
-  result.failures = [{ model: 'gpt-4o-mini', message: 'Model unavailable.' }];
+  result.failures = [{ model: 'gpt-6-luna', message: 'Model unavailable.' }];
   ui.showResult(result);
   assert.match(ui.html, /No comparison yet/);
   assert.match(ui.html, /Model unavailable/);
@@ -136,7 +147,7 @@ test('refresh gates late routes and pagehide clears in-memory inputs/results/key
 test('browser uses local POST, clears key immediately, processes fragmented progress/results, and never persists it', async () => {
   const sent = [];
   const result = resultFixture();
-  const text = `${JSON.stringify({ type: 'progress', index: 0, model: 'gpt-4o', role: 'baseline', state: 'complete' })}\n${JSON.stringify({ type: 'result', result })}\n`;
+  const text = `${JSON.stringify({ type: 'progress', index: 0, model: 'gpt-6-astra', role: 'baseline', state: 'complete' })}\n${JSON.stringify({ type: 'result', result })}\n`;
   const chunks = [text.slice(0, 19), text.slice(19, 131), text.slice(131)];
   const fetchImpl = async (url, options) => {
     sent.push({ url, method: options.method, body: JSON.parse(options.body) });
@@ -147,11 +158,15 @@ test('browser uses local POST, clears key immediately, processes fragmented prog
   ui.run('input = structuredClone(DEMO_INPUT)');
   ui.field('#apiKey').value = 'test-private-key';
   await ui.run('startAnalysis()');
-  assert.equal(sent.length, 2);
+  assert.equal(sent.length, 1);
+  ui.field('#approve-budget').checked = true;
+  await ui.run('startAnalysis()');
+  assert.equal(sent.length, 3);
   assert.equal(sent[0].url, '/api/plan');
-  assert.equal(sent[1].url, '/api/benchmark');
-  assert.equal(sent[1].method, 'POST');
-  assert.equal(sent[1].body.apiKey, 'test-private-key');
+  assert.equal(sent[1].url, '/api/plan');
+  assert.equal(sent[2].url, '/api/benchmark');
+  assert.equal(sent[2].method, 'POST');
+  assert.equal(sent[2].body.apiKey, 'test-private-key');
   assert.equal(ui.field('#apiKey').value, '');
   assert.doesNotMatch(JSON.stringify(sent[0]), /test-private-key/);
   assert.doesNotMatch(ui.run('JSON.stringify({ input, submitted, benchmark, spending, estimate })'), /test-private-key/);
@@ -163,7 +178,7 @@ test('browser uses local POST, clears key immediately, processes fragmented prog
 
 test('over-budget browser flow waits for explicit checkbox consent before transmitting a key', async () => {
   const sent = [];
-  const longInput = { ...data.DEMO_INPUT, request: 'x'.repeat(30000) };
+  const longInput = { ...data.DEMO_INPUT, request: 'x'.repeat(5000) };
   const fetchImpl = async (url, options) => {
     sent.push(url);
     assert.equal(url, '/api/plan');
@@ -171,11 +186,32 @@ test('over-budget browser flow waits for explicit checkbox consent before transm
     return { ok: true, json: async () => buildPlan(longInput) };
   };
   const ui = app('#input', fetchImpl);
-  ui.run("input = { ...DEMO_INPUT, request: 'x'.repeat(30000) }");
+  ui.run("input = { ...DEMO_INPUT, request: 'x'.repeat(5000) }");
   ui.field('#apiKey').value = 'test-private-key';
   await ui.run('startAnalysis()');
   assert.deepEqual(sent, ['/api/plan']);
   assert.match(ui.field('#budget-confirmation').innerHTML, /I approve up to/);
   assert.equal(ui.run('submitted'), null);
   assert.equal(ui.field('#run-button').disabled, false);
+});
+
+
+test('Sol baseline shows Luna as its only candidate and requires a quality decision for savings', () => {
+  const result = resultFixture();
+  result.baseline = { ...result.candidates[0], displayOutput: 'Sol baseline output', outputSource: 'benchmark' };
+  result.candidates = [{ ...result.candidates[1], reduction: models.costReduction(result.baseline.cost, result.candidates[1].cost) }];
+  result.measured = [result.baseline, ...result.candidates];
+  result.plan = buildPlan({ ...data.DEMO_INPUT, model: 'gpt-6.1-sol' });
+  const ui = app(); ui.showResult(result);
+  ui.run("submitted.model = 'gpt-6.1-sol'");
+  assert.match(ui.html, /Cheaper fallback answer/);
+  assert.match(ui.html, /Would you ship this output/);
+  ui.run('tryNextCandidate()');
+  assert.match(ui.html, /No change recommended/);
+  assert.equal(ui.run('acceptedIndex'), null);
+  const accepted = app(); accepted.showResult(result);
+  accepted.run("submitted.model = 'gpt-6.1-sol'; acceptCandidate()"); accepted.change();
+  accepted.run("spending = {monthlySpend: '1000', share: 'half'}; saveEstimate()"); accepted.change();
+  assert.match(accepted.html, /<code>gpt-6-luna<\/code>/);
+  assert.match(accepted.html, /estimated savings opportunity/);
 });

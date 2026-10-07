@@ -23,8 +23,8 @@ class Response extends EventEmitter {
   end(text) { if (text) this.chunks.push(String(text)); this.writableEnded = true; }
   get text() { return this.chunks.join(''); }
 }
-const successful = async ({ model }) => ({ model, returnedModel: model, output: `Answer ${model}`, complete: true, cost: model === 'gpt-4o' ? .001 : .0001, usage: { inputTokens: 100, cachedInputTokens: 0, outputTokens: 20 }, latencyMs: 10 });
-const body = () => ({ input: { ...DEMO_INPUT }, apiKey: TEST_KEY });
+const successful = async ({ model }) => ({ model, returnedModel: model, output: `Answer ${model}`, complete: true, cost: model === 'gpt-6-astra' ? .001 : .0001, usage: { inputTokens: 100, cachedInputTokens: 0, outputTokens: 20 }, latencyMs: 10 });
+const body = () => ({ input: { ...DEMO_INPUT }, approvedMaxCost: buildPlan(DEMO_INPUT).maxCost, apiKey: TEST_KEY });
 
 test('HTTP boundary streams real handler results, with no credential in progress, response, or logs', async t => {
   const logs = [];
@@ -80,7 +80,7 @@ test('static file allowlist never serves server code, tests, or env files; CSP k
 test('HTTP plan never calls provider; budget is enforced again at execution', async () => {
   let calls = 0;
   const handler = createHandler({ provider: async args => { calls++; return successful(args); } });
-  const input = { ...DEMO_INPUT, request: 'x'.repeat(30000) };
+  const input = { ...DEMO_INPUT, request: 'x'.repeat(5000) };
   const planResponse = new Response(); await handler(request({ input }, { url: '/api/plan' }), planResponse);
   assert.equal(JSON.parse(planResponse.text).requiresConfirmation, true);
   const blocked = new Response(); await handler(request({ input, apiKey: TEST_KEY }), blocked);

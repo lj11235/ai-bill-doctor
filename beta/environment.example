@@ -1,0 +1,26 @@
+# Copy to beta/.env.local for private configuration, or enter values directly
+# in your host's secret manager. This template contains no credentials.
+BETA_MODE=live
+PUBLIC_ORIGIN=https://your-beta.example.com
+PORT=5174
+
+# Persistent Postgres 15+. Use the same database across every replica/deploy.
+DATABASE_URL=
+# Generate once; keep stable across deployments. At least 48 random characters.
+IDENTITY_SECRET=
+# Dedicated OpenAI project; server-side only. Never use a public/frontend prefix.
+OPENAI_API_KEY=
+TURNSTILE_SECRET_KEY=
+# This is a public widget identifier, not the secret key.
+TURNSTILE_SITE_KEY=
+
+# Fail closed by default. Both this switch and the database switch must allow.
+BETA_KILL_SWITCH=1
+# Review current Standard prices/settings, then fill these; maximum 7-day approval.
+# Print the expected hash with: node beta/operator.mjs pricing-hash
+PRICING_APPROVED_HASH=
+PRICING_APPROVED_UNTIL=
+
+# Exact ingress proxy ranges only, comma-separated CIDRs. Empty uses socket IP.
+# Never use 0.0.0.0/0 or ::/0. Read DEPLOYMENT.md before configuring.
+TRUSTED_PROXY_CIDRS=

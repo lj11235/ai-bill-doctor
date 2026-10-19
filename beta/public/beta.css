@@ -1,0 +1,7 @@
+.early-access { max-width: 570px; margin: 35px auto; padding: 26px 22px; border-top: 1px solid #dce1d3; text-align: center; }
+.early-access h2 { font-size: 23px; margin-bottom: 10px; }
+.early-access p { line-height: 1.6; margin: 12px 0; }
+.early-access button { margin-top: 8px; }
+.turnstile-block { min-height: 70px; margin: 22px 0 12px; max-width: 100%; }
+.demo-banner { padding: 10px 14px; margin: 0; text-align: center; background: #fff0c8; color: #634b15; font-size: 13px; }
+@media(max-width: 430px) { .turnstile-block { overflow-x: auto; } .early-access { margin: 20px; padding-inline: 0; } }

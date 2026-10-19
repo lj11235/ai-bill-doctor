@@ -1,0 +1,27 @@
+# Allowlist the build context. No experiments, records, credentials or local files.
+**
+!beta/
+!beta/package.json
+!beta/package-lock.json
+!beta/server.mjs
+!beta/policy.mjs
+!beta/security.mjs
+!beta/ledger.mjs
+!beta/engine.mjs
+!beta/provider.mjs
+!beta/fake-provider.mjs
+!beta/operator.mjs
+!beta/migrations/
+!beta/migrations/*.sql
+!beta/public/
+!beta/public/*
+!src/
+!src/models.js
+!src/data.js
+!src/styles.css
+!lib/
+!lib/benchmark.mjs
+!lib/provider.mjs
+!lib/errors.mjs
+!public/
+!public/favicon.svg

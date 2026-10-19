@@ -1,0 +1,22 @@
+{
+  "name": "ai-bill-doctor-beta",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "demo": "node demo.mjs",
+    "migrate": "node operator.mjs migrate",
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs"
+  },
+  "dependencies": {
+    "pg": "8.23.1",
+    "ipaddr.js": "2.2.0"
+  },
+  "devDependencies": {
+    "embedded-postgres": "18.4.0-beta.17"
+  }
+}
